@@ -149,7 +149,7 @@ under 1400 bytes to be safe.
 
 ## License
 
-(c) Copyright IBM Corp. 2010, 2015.
+(c) Copyright IBM Corp. 2015, 2016.
 
 This project is licensed under the Apache License 2.0.  See the
 [LICENSE](LICENSE) file for more info.
@@ -158,3 +158,13 @@ This project is licensed under the Apache License 2.0.  See the
 
 * [go-coap](https://github.com/dustin/go-coap):  MIT licesne
 * [The Go Programming Language](https://golang.org): BSD-style license
+
+
+# Contribution
+
+Contributions to the project are welcomed.  It is required however to provide
+alongside the pull request one of the contribution forms (CLA) that are a part
+of the project.  If the contributor is operating in his individual or personal
+capacity, then he/she is to use the [individual CLA](./CLA-Individual.txt); if
+operating in his/her role at a company or entity, then he/she must use the
+[corporate CLA](CLA-Corporate.txt).
