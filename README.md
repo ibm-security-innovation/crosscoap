@@ -137,6 +137,7 @@ under 1400 bytes to be safe.
 
 ## Related documentation
 
+* [Project homepage](https://developer.ibm.com/open/crosscoap/)
 * [RFC 7252: The Constrained Application Protocol (CoAP)](https://tools.ietf.org/html/rfc7252)
 * [Guidelines for HTTP-CoAP Mapping Implementations (draft)](https://tools.ietf.org/html/draft-ietf-core-http-mapping-07)
 
