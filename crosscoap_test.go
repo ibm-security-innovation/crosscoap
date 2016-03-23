@@ -75,7 +75,7 @@ func TestProxyWithConfirmableRequest(t *testing.T) {
 func TestProxyWithExternalServer(t *testing.T) {
 	udpListener, crosscoapAddr := createLocalUDPListener(t)
 	defer udpListener.Close()
-	proxy := Proxy{Listener: udpListener, BackendURL: "https://api.github.com/"}
+	proxy := Proxy{Listener: udpListener, BackendURL: "https://s3.amazonaws.com/"}
 	go proxy.Serve()
 
 	req := coap.Message{
@@ -83,7 +83,7 @@ func TestProxyWithExternalServer(t *testing.T) {
 		Code:      coap.GET,
 		MessageID: 9876,
 	}
-	req.SetPathString("/users/octocat")
+	req.SetPathString("/non-existing-test-s3-bucket/coap-test/file")
 
 	c, err := coap.Dial("udp", crosscoapAddr)
 	if err != nil {
@@ -97,14 +97,14 @@ func TestProxyWithExternalServer(t *testing.T) {
 		t.Fatalf("Didn't receive CoAP response")
 	}
 
-	if !strings.Contains(string(rv.Payload), `"name":"The Octocat"`) {
+	if !strings.Contains(string(rv.Payload), "NoSuchBucket") {
 		t.Errorf("got body %q which doesn't include the required string", string(rv.Payload))
 	}
-	if rv.Code != coap.Content {
-		t.Errorf("got CoAP code %v; expected %v", rv.Code, coap.Content)
+	if rv.Code != coap.NotFound {
+		t.Errorf("got CoAP code %v; expected %v", rv.Code, coap.NotFound)
 	}
-	if rv.Option(coap.ContentFormat) != coap.AppJSON {
-		t.Errorf("got content format %v; expected %v", rv.Option(coap.ContentFormat), coap.AppJSON)
+	if rv.Option(coap.ContentFormat) != coap.AppXML {
+		t.Errorf("got content format %v; expected %v", rv.Option(coap.ContentFormat), coap.AppXML)
 	}
 }
 
