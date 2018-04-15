@@ -76,6 +76,19 @@ func TestTranslateCOAPRequestWithContentFormat(t *testing.T) {
 	}
 }
 
+func TestTranslateCOAPRequestWithBadURI(t *testing.T) {
+	coapMsg := coap.Message{
+		Type:      coap.Confirmable,
+		Code:      coap.GET,
+		MessageID: 1234,
+	}
+	coapMsg.SetPathString("%")
+	httpReq := translateCOAPRequestToHTTPRequest(&coapMsg, "http://localhost:9876/backend2/")
+	if httpReq != nil {
+		t.Errorf("httpReq is not nil")
+	}
+}
+
 func TestTranslateCOAPResponse(t *testing.T) {
 	coapReq := coap.Message{MessageID: 1234, Token: []byte("MY-TOKEN")}
 	coapReq.SetPathString("/path/to/resource")

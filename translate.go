@@ -165,6 +165,18 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 	return &coapResp, nil
 }
 
+func generateBadRequestCOAPResponse(coapRequest *coap.Message) *translatedCOAPMessage {
+	return &translatedCOAPMessage{
+		Message: coap.Message{
+			Type:      coap.Acknowledgement,
+			Code:      coap.BadRequest,
+			MessageID: coapRequest.MessageID,
+			Token:     coapRequest.Token,
+		},
+		IsTruncated: false,
+	}
+}
+
 func addFinalSlash(s string) string {
 	if strings.HasSuffix(s, "/") {
 		return s

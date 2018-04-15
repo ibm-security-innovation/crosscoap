@@ -108,6 +108,35 @@ func TestProxyWithExternalServer(t *testing.T) {
 	}
 }
 
+func TestProxyWithBadCOAPPacket(t *testing.T) {
+	udpListener, crosscoapAddr := createLocalUDPListener(t)
+	defer udpListener.Close()
+	proxy := Proxy{Listener: udpListener, BackendURL: "https://s3.amazonaws.com/"}
+	go proxy.Serve()
+
+	req := coap.Message{
+		Type:      coap.Confirmable,
+		Code:      coap.GET,
+		MessageID: 9876,
+	}
+	req.SetPathString("%")
+
+	c, err := coap.Dial("udp", crosscoapAddr)
+	if err != nil {
+		t.Fatalf("Error dialing: %v", err)
+	}
+	rv, err := c.Send(req)
+	if err != nil {
+		t.Fatalf("Error sending request: %v", err)
+	}
+	if rv == nil {
+		t.Fatalf("Didn't receive CoAP response")
+	}
+	if rv.Code != coap.BadRequest {
+		t.Errorf("got CoAP code %v; expected %v", rv.Code, coap.BadRequest)
+	}
+}
+
 func createLocalUDPListener(t *testing.T) (*net.UDPConn, string) {
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
 	if err != nil {

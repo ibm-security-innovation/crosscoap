@@ -100,10 +100,17 @@ func (p *proxyHandler) doHTTPRequest(req *http.Request) (*http.Response, []byte,
 
 func (p *proxyHandler) ServeCOAP(l *net.UDPConn, a *net.UDPAddr, m *coap.Message) *coap.Message {
 	p.logAccess("%v: CoAP %v URI-Path=%v URI-Query=%v", a, m.Code, m.PathString(), m.Options(coap.URIQuery))
+	waitForResponse := m.IsConfirmable()
 	req := translateCOAPRequestToHTTPRequest(m, p.BackendURL)
+	if req == nil {
+		if waitForResponse {
+			return &generateBadRequestCOAPResponse(m).Message
+		} else {
+			return nil
+		}
+	}
 	req.Header.Set("User-Agent", userAgent)
 	responseChan := make(chan *coap.Message, 1)
-	waitForResponse := m.IsConfirmable()
 	go func() {
 		httpResp, httpBody, err := p.doHTTPRequest(req)
 		if err != nil {
