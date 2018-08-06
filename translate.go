@@ -9,11 +9,8 @@ import (
 	"github.com/dustin/go-coap"
 )
 
-const maxCOAPPacketLen = 1500
-
 type translatedCOAPMessage struct {
 	coap.Message
-	IsTruncated bool
 }
 
 func invertMap(src map[coap.MediaType]string) map[string]coap.MediaType {
@@ -131,7 +128,6 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 			MessageID: coapRequest.MessageID,
 			Token:     coapRequest.Token,
 		},
-		IsTruncated: false,
 	}
 
 	if httpError != nil {
@@ -145,23 +141,16 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 		coapResp.SetOption(coap.ContentFormat, contentFormat)
 	}
 
-	// intermediate marshalling
-	packetHeaders, err := coapResp.MarshalBinary()
+	_, err := coapResp.MarshalBinary()
 	if err != nil {
 		coapResp.Code = coap.InternalServerError
 		coapResp.RemoveOption(coap.ContentFormat)
 		return &coapResp, err
 	}
 
-	// Check the size so far (+ 1 byte for the payload separator 0xff)
-	headersLen := len(packetHeaders) + 1
-	bytesLeft := maxCOAPPacketLen - headersLen
-	if len(httpBody) > bytesLeft {
-		coapResp.Payload = httpBody[:bytesLeft]
-		coapResp.IsTruncated = true
-	} else {
-		coapResp.Payload = httpBody
-	}
+	// Don't worry about packet size since go-coap supports Block2
+	coapResp.Payload = httpBody
+
 	return &coapResp, nil
 }
 
@@ -173,7 +162,6 @@ func generateBadRequestCOAPResponse(coapRequest *coap.Message) *translatedCOAPMe
 			MessageID: coapRequest.MessageID,
 			Token:     coapRequest.Token,
 		},
-		IsTruncated: false,
 	}
 }
 
