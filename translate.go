@@ -118,6 +118,16 @@ func translateCOAPRequestToHTTPRequest(coapMsg *coap.Message, backendURLPrefix s
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
+
+	for _, o := range coapMsg.VendorOptions() {
+		parts := strings.Split(string(o.([]byte)), ":")
+		if len(parts) < 2 {
+			continue
+		}
+
+		req.Header.Add(parts[0], parts[1])
+	}
+
 	return req
 }
 
