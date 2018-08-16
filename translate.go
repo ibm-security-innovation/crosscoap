@@ -158,8 +158,18 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 		return &coapResp, err
 	}
 
-	// Don't worry about packet size since go-coap supports Block2
-	coapResp.Payload = httpBody
+	rd := bytes.NewReader(httpBody)
+	_, err = rd.Seek(int64(coapRequest.Block2.Num*coapRequest.Block2.Size), 0)
+
+	payload := make([]byte, coapRequest.Block2.Size)
+
+	_, err = rd.Read(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	coapResp.Payload = payload
+	coapResp.AddOption(coap.Size2, uint32(len(httpBody)))
 
 	return &coapResp, nil
 }
