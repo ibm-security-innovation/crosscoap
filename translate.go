@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/dustin/go-coap"
+	"github.com/OSSystems/go-coap"
 )
 
 type translatedCOAPMessage struct {

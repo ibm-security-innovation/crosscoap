@@ -43,7 +43,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dustin/go-coap"
+	"github.com/OSSystems/go-coap"
 )
 
 // Proxy is CoAP server that takes an incoming CoAP request, translates it to

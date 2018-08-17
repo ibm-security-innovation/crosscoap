@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dustin/go-coap"
+	"github.com/OSSystems/go-coap"
 )
 
 func TestProxyWithConfirmableRequest(t *testing.T) {
