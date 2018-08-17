@@ -6,14 +6,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/dustin/go-coap"
+	"github.com/OSSystems/go-coap"
 )
-
-const maxCOAPPacketLen = 1500
 
 type translatedCOAPMessage struct {
 	coap.Message
-	IsTruncated bool
 }
 
 func invertMap(src map[coap.MediaType]string) map[string]coap.MediaType {
@@ -121,6 +118,16 @@ func translateCOAPRequestToHTTPRequest(coapMsg *coap.Message, backendURLPrefix s
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
+
+	for _, o := range coapMsg.VendorOptions() {
+		parts := strings.Split(string(o.([]byte)), ":")
+		if len(parts) < 2 {
+			continue
+		}
+
+		req.Header.Add(parts[0], parts[1])
+	}
+
 	return req
 }
 
@@ -131,7 +138,6 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 			MessageID: coapRequest.MessageID,
 			Token:     coapRequest.Token,
 		},
-		IsTruncated: false,
 	}
 
 	if httpError != nil {
@@ -145,23 +151,26 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 		coapResp.SetOption(coap.ContentFormat, contentFormat)
 	}
 
-	// intermediate marshalling
-	packetHeaders, err := coapResp.MarshalBinary()
+	_, err := coapResp.MarshalBinary()
 	if err != nil {
 		coapResp.Code = coap.InternalServerError
 		coapResp.RemoveOption(coap.ContentFormat)
 		return &coapResp, err
 	}
 
-	// Check the size so far (+ 1 byte for the payload separator 0xff)
-	headersLen := len(packetHeaders) + 1
-	bytesLeft := maxCOAPPacketLen - headersLen
-	if len(httpBody) > bytesLeft {
-		coapResp.Payload = httpBody[:bytesLeft]
-		coapResp.IsTruncated = true
-	} else {
-		coapResp.Payload = httpBody
+	rd := bytes.NewReader(httpBody)
+	_, err = rd.Seek(int64(coapRequest.Block2.Num*coapRequest.Block2.Size), 0)
+
+	payload := make([]byte, coapRequest.Block2.Size)
+
+	n, err := rd.Read(payload)
+	if err != nil {
+		return nil, err
 	}
+
+	coapResp.Payload = payload[0:n]
+	coapResp.AddOption(coap.Size2, uint32(len(httpBody)))
+
 	return &coapResp, nil
 }
 
@@ -173,7 +182,6 @@ func generateBadRequestCOAPResponse(coapRequest *coap.Message) *translatedCOAPMe
 			MessageID: coapRequest.MessageID,
 			Token:     coapRequest.Token,
 		},
-		IsTruncated: false,
 	}
 }
 

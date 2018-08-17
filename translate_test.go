@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/dustin/go-coap"
@@ -105,9 +104,6 @@ func TestTranslateCOAPResponse(t *testing.T) {
 	if coapResp.Code != coap.Content {
 		t.Errorf("coapResp.Code is '%v'", coapResp.Code)
 	}
-	if coapResp.IsTruncated {
-		t.Error("Expected CoAP response to be non-truncated")
-	}
 	if string(coapResp.Payload) != `{"ok":"The response body"}` {
 		t.Errorf("coapResp.Payload is '%v'", string(coapResp.Payload))
 	}
@@ -164,26 +160,5 @@ func TestTranslateCOAPResponseWithErrorDuringRequest(t *testing.T) {
 	}
 	if coapResp.MessageID != 1234 {
 		t.Errorf("coapResp.MessageID is '%v'", coapResp.MessageID)
-	}
-}
-
-func TestTranslateCOAPResponseTrunactesBigHTTPBody(t *testing.T) {
-	coapReq := coap.Message{MessageID: 1234, Token: []byte("TOKEN")}
-	coapReq.SetPathString("/path/to/resource")
-
-	responseText := "HTTP/1.0 200 OK\r\n" +
-		"\r\n" +
-		strings.Repeat("ABCD", 1000)
-	httpResp, httpBody := getHTTPRespAndBody(t, responseText)
-	coapResp, err := translateHTTPResponseToCOAPResponse(httpResp, httpBody, nil, &coapReq)
-	if err != nil {
-		t.Fatalf("Error translating: %v", err)
-	}
-	if !coapResp.IsTruncated {
-		t.Error("Expected CoAP response to be truncated")
-	}
-	payload := string(coapResp.Payload)
-	if exp := 1490; len(payload) != exp {
-		t.Errorf("Expected CoAP payload %v, got %v", exp, len(payload))
 	}
 }

@@ -43,7 +43,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dustin/go-coap"
+	"github.com/OSSystems/go-coap"
 )
 
 // Proxy is CoAP server that takes an incoming CoAP request, translates it to
@@ -121,9 +121,7 @@ func (p *proxyHandler) ServeCOAP(l *net.UDPConn, a *net.UDPAddr, m *coap.Message
 			if err != nil {
 				p.logError("Error translating HTTP to CoAP: %v", err)
 			}
-			if coapResp.IsTruncated {
-				p.logError("CoAP payload truncated from %v bytes to %v bytes", len(httpBody), len(coapResp.Payload))
-			}
+
 			responseChan <- &coapResp.Message
 		}
 	}()
