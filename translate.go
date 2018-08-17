@@ -163,12 +163,12 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 
 	payload := make([]byte, coapRequest.Block2.Size)
 
-	_, err = rd.Read(payload)
+	n, err := rd.Read(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	coapResp.Payload = payload
+	coapResp.Payload = payload[0:n]
 	coapResp.AddOption(coap.Size2, uint32(len(httpBody)))
 
 	return &coapResp, nil
