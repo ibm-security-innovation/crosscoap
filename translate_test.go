@@ -122,6 +122,39 @@ func TestTranslateCOAPResponse(t *testing.T) {
 	}
 }
 
+func TestTranslateCOAPResponseWithPlainText(t *testing.T) {
+	coapReq := coap.Message{MessageID: 1234, Token: []byte("MY-TOKEN")}
+	coapReq.SetPathString("/path/to/resource")
+
+	responseText := "HTTP/1.0 200 OK\r\n" +
+		"Content-Type: text/plain\r\n" +
+		"\r\n" +
+		"Response Body"
+	httpResp, httpBody := getHTTPRespAndBody(t, responseText)
+	coapResp, err := translateHTTPResponseToCOAPResponse(httpResp, httpBody, nil, &coapReq)
+	if err != nil {
+		t.Fatalf("Error translating: %v", err)
+	}
+	if coapResp.Code != coap.Content {
+		t.Errorf("coapResp.Code is '%v'", coapResp.Code)
+	}
+	if coapResp.IsTruncated {
+		t.Error("Expected CoAP response to be non-truncated")
+	}
+	if string(coapResp.Payload) != "Response Body" {
+		t.Errorf("coapResp.Payload is '%v'", string(coapResp.Payload))
+	}
+	if coapResp.Option(coap.ContentFormat) != coap.TextPlain {
+		t.Errorf("content format is %v", coapResp.Option(coap.ContentFormat))
+	}
+	if coapResp.MessageID != 1234 {
+		t.Errorf("coapResp.MessageID is %v", coapResp.MessageID)
+	}
+	if !bytes.Equal(coapResp.Token, coapReq.Token) {
+		t.Errorf("coapResp.Token is %v", coapResp.Token)
+	}
+}
+
 func TestTranslateCOAPNoContentResponse(t *testing.T) {
 	coapReq := coap.Message{MessageID: 1234}
 	coapReq.SetPathString("/path/to/resource")

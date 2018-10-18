@@ -19,7 +19,8 @@ type translatedCOAPMessage struct {
 func invertMap(src map[coap.MediaType]string) map[string]coap.MediaType {
 	dst := make(map[string]coap.MediaType, len(src))
 	for key, val := range src {
-		dst[val] = key
+		parts := strings.SplitN(val, ";", 2)
+		dst[parts[0]] = key
 	}
 	return dst
 }
