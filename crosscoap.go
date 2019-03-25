@@ -9,15 +9,15 @@
 //
 //     import (
 //             "log"
-//						 "net"
-//						 "os"
-//						 "time"
+//	       "net"
+//             "os"
+//             "time"
 //
 //             "github.com/ibm-security-innovation/crosscoap"
 //     )
 //
 //     func main() {
-//						 timeout := time.Duration(10)
+//	       timeout := time.Duration(10)
 //             appLog := log.New(os.Stderr, "[example] ", log.LstdFlags)
 //             udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:5683")
 //             if err != nil {
@@ -28,7 +28,7 @@
 //                     errorLog.Fatalln("Can't listen on UDP")
 //             }
 //             defer udpListener.Close()
-//             p := crosscoap.COAPProxy{
+//             p := crosscoap.Proxy{
 //                     Listener:   udpListener,
 //                     BackendURL: "http://127.0.0.1:8000/",
 //                     Timeout:    &timeout,
