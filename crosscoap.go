@@ -9,11 +9,15 @@
 //
 //     import (
 //             "log"
+//						 "net"
+//						 "os"
+//						 "time"
 //
 //             "github.com/ibm-security-innovation/crosscoap"
 //     )
 //
 //     func main() {
+//						 timeout := time.Duration(10)
 //             appLog := log.New(os.Stderr, "[example] ", log.LstdFlags)
 //             udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:5683")
 //             if err != nil {
@@ -27,7 +31,7 @@
 //             p := crosscoap.COAPProxy{
 //                     Listener:   udpListener,
 //                     BackendURL: "http://127.0.0.1:8000/",
-//                     Timeout:    10 * time.Second,
+//                     Timeout:    &timeout,
 //                     AccessLog:  appLog,
 //                     ErrorLog:   appLog,
 //             }
