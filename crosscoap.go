@@ -9,7 +9,7 @@
 //
 //     import (
 //             "log"
-//	       "net"
+//	           "net"
 //             "os"
 //             "time"
 //
@@ -17,7 +17,7 @@
 //     )
 //
 //     func main() {
-//	       timeout := time.Duration(10)
+//             timeout := time.Duration(10 * time.Second)
 //             appLog := log.New(os.Stderr, "[example] ", log.LstdFlags)
 //             udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:5683")
 //             if err != nil {

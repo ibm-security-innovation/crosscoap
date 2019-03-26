@@ -104,7 +104,7 @@ functionality to an existing Go application. For example:
     )
 
     func main() {
-            timeout := time.Duration(10)
+            timeout := time.Duration(10 * time.Second)
             appLog := log.New(os.Stderr, "", log.LstdFlags)
             udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:5683")
             if err != nil {
