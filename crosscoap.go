@@ -5,38 +5,38 @@
 //
 // Example:
 //
-//     package main
+// 	package main
 //
-//     import (
-//             "log"
-//	           "net"
-//             "os"
-//             "time"
+// 	import (
+// 		"log"
+// 		"net"
+// 		"os"
+// 		"time"
 //
-//             "github.com/ibm-security-innovation/crosscoap"
-//     )
+// 		"github.com/ibm-security-innovation/crosscoap"
+// 	)
 //
-//     func main() {
-//             timeout := time.Duration(10 * time.Second)
-//             appLog := log.New(os.Stderr, "[example] ", log.LstdFlags)
-//             udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:5683")
-//             if err != nil {
-//                     appLog.Fatalln("Can't resolve UDP addr")
-//             }
-//             udpListener, err := net.ListenUDP("udp", udpAddr)
-//             if err != nil {
-//                     errorLog.Fatalln("Can't listen on UDP")
-//             }
-//             defer udpListener.Close()
-//             p := crosscoap.Proxy{
-//                     Listener:   udpListener,
-//                     BackendURL: "http://127.0.0.1:8000/",
-//                     Timeout:    &timeout,
-//                     AccessLog:  appLog,
-//                     ErrorLog:   appLog,
-//             }
-//             appLog.Fatal(p.Serve())
-//     }
+// 	func main() {
+// 		timeout := time.Duration(10 * time.Second)
+// 		appLog := log.New(os.Stderr, "[example] ", log.LstdFlags)
+// 		udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:5683")
+// 		if err != nil {
+// 			appLog.Fatalln("Can't resolve UDP addr")
+// 		}
+// 		udpListener, err := net.ListenUDP("udp", udpAddr)
+// 		if err != nil {
+// 			errorLog.Fatalln("Can't listen on UDP")
+// 		}
+// 		defer udpListener.Close()
+// 		p := crosscoap.Proxy{
+// 			Listener:   udpListener,
+// 			BackendURL: "http://127.0.0.1:8000/",
+// 			Timeout:    &timeout,
+// 			AccessLog:  appLog,
+// 			ErrorLog:   appLog,
+// 		}
+// 		appLog.Fatal(p.Serve())
+// 	}
 //
 package crosscoap
 
