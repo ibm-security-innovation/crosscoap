@@ -118,6 +118,10 @@ func translateCOAPRequestToHTTPRequest(coapMsg *coap.Message, backendURLPrefix s
 		return nil
 	}
 
+	if s, ok := coapMsg.Option(coap.URIHost).(string); ok {
+		req.Host = s
+	}
+
 	contentType := getHTTPContentTypeFromCOAPMessage(*coapMsg)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)

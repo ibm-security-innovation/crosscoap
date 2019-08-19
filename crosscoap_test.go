@@ -11,6 +11,7 @@ import (
 )
 
 func TestProxyWithConfirmableRequest(t *testing.T) {
+	const customUriHost = "hocus-pocus.example.com"
 	const backendResponse = "<body>This is the response text</body>"
 	const backendStatus = 404
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,6 +26,9 @@ func TestProxyWithConfirmableRequest(t *testing.T) {
 		}
 		if r.UserAgent() != "crosscoap/1.0" {
 			t.Errorf("backend got unexpected User-Agent: %v", r.UserAgent())
+		}
+		if r.Host != customUriHost {
+			t.Errorf("backend got unexpected Host: %v", r.Host)
 		}
 		//if r.Header.Get("X-Forwarded-For") == "" {
 		//	t.Errorf("didn't get X-Forwarded-For header")
@@ -48,6 +52,7 @@ func TestProxyWithConfirmableRequest(t *testing.T) {
 	}
 	req.SetPathString("/some/path")
 	req.SetOption(coap.ContentFormat, coap.AppJSON)
+	req.SetOption(coap.URIHost, customUriHost)
 
 	c, err := coap.Dial("udp", crosscoapAddr)
 	if err != nil {
