@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -86,6 +87,41 @@ func TestTranslateCOAPRequestWithBadURI(t *testing.T) {
 	httpReq := translateCOAPRequestToHTTPRequest(&coapMsg, "http://localhost:9876/backend2/")
 	if httpReq != nil {
 		t.Errorf("httpReq is not nil")
+	}
+}
+
+func TestTranslateCOAPRequestWithUriHost(t *testing.T) {
+	customUriHost := "hocus-pocus.example.com"
+	coapMsg := coap.Message{
+		Type:      coap.Confirmable,
+		Code:      coap.GET,
+		MessageID: 1234,
+	}
+	coapMsg.SetPathString("resource")
+	coapMsg.SetOption(coap.URIHost, []string{customUriHost})
+
+	httpReq := translateCOAPRequestToHTTPRequest(&coapMsg, "http://localhost:9876/backend2/")
+	if httpReq.Host != customUriHost {
+		t.Errorf("httpReq.Host is '%v'", httpReq.Host)
+	}
+}
+
+func TestTranslateCOAPRequestWithoutUriHost(t *testing.T) {
+	backendURLPrefix := "http://localhost:9876/backend2/"
+	coapMsg := coap.Message{
+		Type:      coap.Confirmable,
+		Code:      coap.GET,
+		MessageID: 1234,
+	}
+	coapMsg.SetPathString("resource")
+
+	httpReq := translateCOAPRequestToHTTPRequest(&coapMsg, backendURLPrefix)
+	u, err := url.Parse(backendURLPrefix)
+	if err != nil {
+		t.Error("error parsing URL")
+	}
+	if httpReq.Host != u.Host {
+		t.Errorf("httpReq.Host is '%v'", httpReq.Host)
 	}
 }
 
