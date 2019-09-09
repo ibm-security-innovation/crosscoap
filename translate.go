@@ -16,25 +16,19 @@ type translatedCOAPMessage struct {
 	IsTruncated bool
 }
 
-func invertMap(src map[coap.MediaType]string) map[string]coap.MediaType {
-	dst := make(map[string]coap.MediaType, len(src))
-	for key, val := range src {
-		parts := strings.SplitN(val, ";", 2)
-		dst[parts[0]] = key
-	}
-	return dst
+type content struct {
+	Type     string
+	Encoding string
 }
 
-var coapContentFormatContentType = map[coap.MediaType]string{
-	coap.TextPlain:     "text/plain;charset=utf-8",
-	coap.AppLinkFormat: "application/link-format",
-	coap.AppXML:        "application/xml",
-	coap.AppOctets:     "application/octet-stream",
-	coap.AppExi:        "application/exi",
-	coap.AppJSON:       "application/json",
+var coapContentFormatContentType = map[coap.MediaType]content{
+	coap.TextPlain:     content{Type: "text/plain;charset=utf-8"},
+	coap.AppLinkFormat: content{Type: "application/link-format"},
+	coap.AppXML:        content{Type: "application/xml"},
+	coap.AppOctets:     content{Type: "application/octet-stream"},
+	coap.AppExi:        content{Type: "application/exi"},
+	coap.AppJSON:       content{Type: "application/json"},
 }
-
-var httpContentTypeContentFormat = invertMap(coapContentFormatContentType)
 
 var httpStatusCOAPCode = map[int]coap.COAPCode{
 	http.StatusOK:        coap.Content,
@@ -68,21 +62,27 @@ func translateStatusCode(httpStatusCode int) coap.COAPCode {
 	return coap.Content
 }
 
-func translateContentType(contentType string) (coap.MediaType, bool) {
-	parts := strings.SplitN(contentType, ";", 2)
-	contentFormat, found := httpContentTypeContentFormat[parts[0]]
-	return contentFormat, found
+func trimCharset(val string) string {
+	return strings.SplitN(val, ";", 2)[0]
 }
 
-func getHTTPContentTypeFromCOAPMessage(msg coap.Message) string {
-	contentFormat := msg.Option(coap.ContentFormat)
-	if contentFormat != nil {
-		contentType, found := coapContentFormatContentType[contentFormat.(coap.MediaType)]
-		if found {
-			return contentType
+func translateContentTypeWithEncoding(contentType, contentEncoding string) (coap.MediaType, bool) {
+	contentType = trimCharset(contentType)
+	for mediaType, ct := range coapContentFormatContentType {
+		if trimCharset(ct.Type) == contentType && ct.Encoding == contentEncoding {
+			return mediaType, true
 		}
 	}
-	return ""
+	return 0, false
+}
+
+func getContentFormatFromCoapMessage(msg coap.Message) (content, bool) {
+	contentFormat := msg.Option(coap.ContentFormat)
+	if contentFormat != nil {
+		ct, found := coapContentFormatContentType[contentFormat.(coap.MediaType)]
+		return ct, found
+	}
+	return content{}, false
 }
 
 func escapeKeyValue(s string) string {
@@ -122,9 +122,15 @@ func translateCOAPRequestToHTTPRequest(coapMsg *coap.Message, backendURLPrefix s
 		req.Host = s
 	}
 
-	contentType := getHTTPContentTypeFromCOAPMessage(*coapMsg)
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
+	contentFormat, found := getContentFormatFromCoapMessage(*coapMsg)
+
+	if found {
+		if contentFormat.Type != "" {
+			req.Header.Set("Content-Type", contentFormat.Type)
+		}
+		if contentFormat.Encoding != "" {
+			req.Header.Set("Content-Encoding", contentFormat.Encoding)
+		}
 	}
 	return req
 }
@@ -145,7 +151,9 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 	}
 
 	coapResp.Code = translateStatusCode(httpResp.StatusCode)
-	contentFormat, hasContentFormat := translateContentType(httpResp.Header.Get("Content-Type"))
+	contentFormat, hasContentFormat := translateContentTypeWithEncoding(
+		httpResp.Header.Get("Content-Type"),
+		httpResp.Header.Get("Content-Encoding"))
 	if hasContentFormat {
 		coapResp.SetOption(coap.ContentFormat, contentFormat)
 	}
