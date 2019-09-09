@@ -21,6 +21,8 @@ type content struct {
 	Encoding string
 }
 
+const appJSONDeflate coap.MediaType = 11050
+
 var coapContentFormatContentType = map[coap.MediaType]content{
 	coap.TextPlain:     content{Type: "text/plain;charset=utf-8"},
 	coap.AppLinkFormat: content{Type: "application/link-format"},
@@ -28,6 +30,7 @@ var coapContentFormatContentType = map[coap.MediaType]content{
 	coap.AppOctets:     content{Type: "application/octet-stream"},
 	coap.AppExi:        content{Type: "application/exi"},
 	coap.AppJSON:       content{Type: "application/json"},
+	appJSONDeflate:     content{Type: "application/json", Encoding: "deflate"},
 }
 
 var httpStatusCOAPCode = map[int]coap.COAPCode{
