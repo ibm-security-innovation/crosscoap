@@ -125,6 +125,25 @@ func TestTranslateCOAPRequestWithoutUriHost(t *testing.T) {
 	}
 }
 
+func TestTranslateCOAPRequestWithContentEncoding(t *testing.T) {
+	backendURLPrefix := "http://localhost:9876/backend2/"
+	coapMsg := coap.Message{
+		Type:      coap.Confirmable,
+		Code:      coap.GET,
+		MessageID: 1234,
+	}
+	coapMsg.SetPathString("resource")
+	coapMsg.SetOption(coap.ContentFormat, appJSONDeflate)
+
+	httpReq := translateCOAPRequestToHTTPRequest(&coapMsg, backendURLPrefix)
+	if httpReq.Header.Get("Content-Type") != "application/json" {
+		t.Errorf("Content-Type is '%v'", httpReq.Header.Get("Content-Type"))
+	}
+	if httpReq.Header.Get("Content-Encoding") != "deflate" {
+		t.Errorf("Content-Encoding is '%v'", httpReq.Header.Get("Content-Encoding"))
+	}
+}
+
 func TestTranslateCOAPResponse(t *testing.T) {
 	coapReq := coap.Message{MessageID: 1234, Token: []byte("MY-TOKEN")}
 	coapReq.SetPathString("/path/to/resource")
@@ -148,6 +167,40 @@ func TestTranslateCOAPResponse(t *testing.T) {
 		t.Errorf("coapResp.Payload is '%v'", string(coapResp.Payload))
 	}
 	if coapResp.Option(coap.ContentFormat) != coap.AppJSON {
+		t.Errorf("content format is %v", coapResp.Option(coap.ContentFormat))
+	}
+	if coapResp.MessageID != 1234 {
+		t.Errorf("coapResp.MessageID is %v", coapResp.MessageID)
+	}
+	if !bytes.Equal(coapResp.Token, coapReq.Token) {
+		t.Errorf("coapResp.Token is %v", coapResp.Token)
+	}
+}
+
+func TestTranslateCOAPResponseWithContentEncoding(t *testing.T) {
+	coapReq := coap.Message{MessageID: 1234, Token: []byte("MY-TOKEN")}
+	coapReq.SetPathString("/path/to/resource")
+
+	responseText := "HTTP/1.0 200 OK\r\n" +
+		"Content-Type: application/json\r\n" +
+		"Content-Encoding: deflate\r\n" +
+		"\r\n" +
+		`{"ok":"The response body"}`
+	httpResp, httpBody := getHTTPRespAndBody(t, responseText)
+	coapResp, err := translateHTTPResponseToCOAPResponse(httpResp, httpBody, nil, &coapReq)
+	if err != nil {
+		t.Fatalf("Error translating: %v", err)
+	}
+	if coapResp.Code != coap.Content {
+		t.Errorf("coapResp.Code is '%v'", coapResp.Code)
+	}
+	if coapResp.IsTruncated {
+		t.Error("Expected CoAP response to be non-truncated")
+	}
+	if string(coapResp.Payload) != `{"ok":"The response body"}` {
+		t.Errorf("coapResp.Payload is '%v'", string(coapResp.Payload))
+	}
+	if coapResp.Option(coap.ContentFormat) != appJSONDeflate {
 		t.Errorf("content format is %v", coapResp.Option(coap.ContentFormat))
 	}
 	if coapResp.MessageID != 1234 {
