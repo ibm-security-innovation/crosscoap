@@ -41,13 +41,18 @@
 package crosscoap
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"github.com/die-net/lrucache"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"time"
 
-	"github.com/dustin/go-coap"
+	"github.com/besedad/go-coap"
 )
 
 // Proxy is CoAP server that takes an incoming CoAP request, translates it to
@@ -73,6 +78,9 @@ type Proxy struct {
 	// attempting to proxy the request.  If nil, error logging goes to
 	// os.Stderr via the log package's standard logger.
 	ErrorLog *log.Logger
+
+	// HTTP cache stores responses for given period.
+	HTTPCache *lrucache.LruCache
 }
 
 type proxyHandler struct {
@@ -83,6 +91,38 @@ const (
 	defaultHTTPTimeout = 5 * time.Second
 	userAgent          = "crosscoap/1.0"
 )
+
+func (p *proxyHandler) doHTTPRequestCached(req *http.Request) (*http.Response, []byte, error) {
+	cacheKey := fmt.Sprintf("%s %s", req.Method, req.URL.String())
+	httpRespRaw, cached := p.HTTPCache.Get(cacheKey)
+	if cached {
+		log.Printf("Found key `%s` in cache...", cacheKey)
+		// Parse raw response data into http.Response struct
+		httpResp, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(httpRespRaw)), nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer httpResp.Body.Close()
+		httpBody, err := ioutil.ReadAll(httpResp.Body)
+		if err != nil {
+			return nil, nil, err
+		}
+		// Update cached key so it won't expire
+		p.HTTPCache.Set(cacheKey, httpRespRaw)
+		return httpResp, httpBody, nil
+	}
+	httpResp, httpBody, err := p.doHTTPRequest(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	httpRespRaw, err = httputil.DumpResponse(httpResp, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Store response in the cache
+	p.HTTPCache.Set(cacheKey, httpRespRaw)
+	return httpResp, httpBody, nil
+}
 
 func (p *proxyHandler) doHTTPRequest(req *http.Request) (*http.Response, []byte, error) {
 	timeout := defaultHTTPTimeout
@@ -99,6 +139,8 @@ func (p *proxyHandler) doHTTPRequest(req *http.Request) (*http.Response, []byte,
 	if err != nil {
 		return nil, nil, err
 	}
+	// ioutil.ReadAll above, consumes entire Body so in order to have the body readable again, we must recreate it.
+	httpResp.Body = ioutil.NopCloser(bytes.NewReader(httpBody))
 	return httpResp, httpBody, nil
 }
 
@@ -116,7 +158,16 @@ func (p *proxyHandler) ServeCOAP(l *net.UDPConn, a *net.UDPAddr, m *coap.Message
 	req.Header.Set("User-Agent", userAgent)
 	responseChan := make(chan *coap.Message, 1)
 	go func() {
-		httpResp, httpBody, err := p.doHTTPRequest(req)
+		var httpResp *http.Response
+		var httpBody []byte
+		var err error
+		// Test if Block2 is sent in request, if so look for response in cache
+		if m.IsBlock2() {
+			log.Printf("COAP Block2 found, caching the response...")
+			httpResp, httpBody, err = p.doHTTPRequestCached(req)
+		} else {
+			httpResp, httpBody, err = p.doHTTPRequest(req)
+		}
 		if err != nil {
 			p.logError("Error on HTTP request: %v", err)
 		}

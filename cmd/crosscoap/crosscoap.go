@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
+	"github.com/besedad/crosscoap"
+	"github.com/die-net/lrucache"
 	"log"
 	"net"
 	"os"
-
-	"github.com/ibm-security-innovation/crosscoap"
 )
 
 var (
@@ -14,6 +14,8 @@ var (
 	backendURL    = flag.String("backend", "", "Backend HTTP server URL")
 	errorLogName  = flag.String("errorlog", "", "Error log file name (default is stderr)")
 	accessLogName = flag.String("accesslog", "", "Access log file name (default is no log)")
+	cacheMaxSize  = flag.Int64("cachemaxsize", 10485760, "Set maximum size in Bytes for HTTP cache")
+	cacheMaxAge   = flag.Int64("cachemaxage", 600, "Set maximum age in Seconds of entries in HTTP cache")
 )
 
 func main() {
@@ -62,6 +64,7 @@ func main() {
 		BackendURL: *backendURL,
 		ErrorLog:   errorLog,
 		AccessLog:  accessLog,
+		HTTPCache:  lrucache.New(*cacheMaxSize, *cacheMaxAge),
 	}
 	err = p.Serve()
 	if err != nil {

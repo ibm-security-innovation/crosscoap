@@ -1,13 +1,13 @@
 package crosscoap
 
 import (
+	"github.com/besedad/go-coap"
+	"github.com/die-net/lrucache"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/dustin/go-coap"
 )
 
 func TestProxyWithConfirmableRequest(t *testing.T) {
@@ -139,6 +139,72 @@ func TestProxyWithBadCOAPPacket(t *testing.T) {
 	}
 	if rv.Code != coap.BadRequest {
 		t.Errorf("got CoAP code %v; expected %v", rv.Code, coap.BadRequest)
+	}
+}
+
+func TestProxyWithBlock2Cache(t *testing.T) {
+	const backendStatus = http.StatusOK
+	const backendResponse = "If you are reading this, it works."
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(backendStatus)
+		w.Write([]byte(backendResponse))
+	}))
+	defer backend.Close()
+
+	httpCache := lrucache.New(10 * 1024, 600)
+	udpListener, crosscoapAddr := createLocalUDPListener(t)
+	defer udpListener.Close()
+	proxy := Proxy{
+		Listener: udpListener,
+		BackendURL: backend.URL,
+		HTTPCache: httpCache,
+	}
+	go proxy.Serve()
+
+	req := coap.Message{
+		Type:      coap.Confirmable,
+		Code:      coap.GET,
+		MessageID: 12345,
+	}
+	req.SetPathString("/test")
+
+	c, err := coap.Dial("udp", crosscoapAddr)
+	if err != nil {
+		t.Fatalf("Error dialing: %v", err)
+	}
+
+	// Download all payload blocks
+	payload := []byte{}
+	for i := uint32(4); true; i++ {
+		req.SetBlock2(i, 4, false)
+
+		rv, err := c.Send(req)
+		if err != nil {
+			t.Fatalf("Error sending request: %v", err)
+		}
+		if rv == nil {
+			t.Fatalf("Didn't receive CoAP response")
+		}
+		if rv.Code != coap.Content {
+			t.Errorf("got CoAP code %v; expected %v", rv.Code, coap.Content)
+		}
+		payload = append(payload, rv.Payload...)
+
+		_, _, more := rv.Block2()
+		if more == false {
+			// There aren't any more blocks
+			break
+		}
+	}
+
+	if string(payload) != backendResponse {
+		t.Errorf("got body %q; expected %q", string(payload), backendResponse)
+	}
+
+	_, ok := httpCache.Get("GET " + backend.URL + "/test")
+	if ok == false {
+		t.Errorf("HTTP Cache is empty, expects one item")
 	}
 }
 

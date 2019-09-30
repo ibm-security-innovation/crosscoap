@@ -2,11 +2,13 @@ package crosscoap
 
 import (
 	"bytes"
+	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/dustin/go-coap"
+	"github.com/besedad/go-coap"
 )
 
 const maxCOAPPacketLen = 1500
@@ -146,6 +148,30 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 			Token:     coapRequest.Token,
 		},
 		IsTruncated: false,
+	}
+	if coapRequest.IsBlock2() {
+		num, szx, _ := coapRequest.Block2()
+		// Calculate the block size from size exponent
+		size := uint32(math.Pow(2, float64(szx)))
+		// Are there other blocks? Assume that there are...
+		more := true
+		// Read from this offset
+		readFrom := int(num * size)
+		// Read to this offset
+		readTo := readFrom + int(size)
+		if readFrom > len(httpBody) {
+			// If offset lays beyond boundaries of the slice, read from the beginning
+			readFrom = 0
+		}
+		if readTo > len(httpBody) {
+			readTo = len(httpBody)
+			// We have reached the end of body, there aren't any other blocks
+			more = false
+		}
+		log.Printf("Sending fragmented response body (block: %d, size: %d, more: %v)", num, size, more)
+		log.Printf("httpBody[%d:%d]", readFrom, readTo)
+		httpBody = httpBody[readFrom:readTo]
+		coapResp.SetBlock2(num, szx, more)
 	}
 
 	if httpError != nil {
