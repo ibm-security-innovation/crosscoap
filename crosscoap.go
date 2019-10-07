@@ -92,11 +92,55 @@ const (
 	userAgent          = "crosscoap/1.0"
 )
 
+func (p *proxyHandler) cacheHTTPRequest(req *http.Request) (*http.Request, error) {
+	cacheKey := fmt.Sprintf("REQ %s %s", req.Method, req.URL.String())
+	// Find the request in cache
+	httpReqRaw, cached := p.HTTPCache.Get(cacheKey)
+	cacheReq := req
+	if cached {
+		var err error
+		cacheReq, err = http.ReadRequest(bufio.NewReader(bytes.NewReader(httpReqRaw)))
+		if err != nil {
+			return nil, err
+		}
+		// RequestURI is the unmodified Request-URI of the Request-Line as sent by the client to a server.
+		// Usually the URL field should be used instead.
+		// It is an error to set this field in an HTTP client request.
+		cacheReq.RequestURI = ""
+		// Request does not carry information about request URL so we must copy it from the last request.
+		cacheReq.URL = req.URL
+
+		// Read cached body
+		httpBodyCached, err := ioutil.ReadAll(cacheReq.Body)
+		if err != nil {
+			return nil, err
+		}
+		cacheReq.Body.Close()
+
+		// Read new body
+		httpBody, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		req.Body.Close()
+
+		// Update cached request's body and ContentLength!
+		cacheReq.ContentLength = int64(len(httpBodyCached) + len(httpBody))
+		cacheReq.Body = ioutil.NopCloser(bytes.NewReader(append(httpBodyCached, httpBody...)))
+	}
+
+	httpReqRaw, err := httputil.DumpRequestOut(cacheReq, true)
+	if err != nil {
+		return nil, err
+	}
+	p.HTTPCache.Set(cacheKey, httpReqRaw)
+	return cacheReq, err
+}
+
 func (p *proxyHandler) doHTTPRequestCached(req *http.Request) (*http.Response, []byte, error) {
-	cacheKey := fmt.Sprintf("%s %s", req.Method, req.URL.String())
+	cacheKey := fmt.Sprintf("RES %s %s", req.Method, req.URL.String())
 	httpRespRaw, cached := p.HTTPCache.Get(cacheKey)
 	if cached {
-		log.Printf("Found key `%s` in cache...", cacheKey)
 		// Parse raw response data into http.Response struct
 		httpResp, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(httpRespRaw)), nil)
 		if err != nil {
@@ -139,7 +183,8 @@ func (p *proxyHandler) doHTTPRequest(req *http.Request) (*http.Response, []byte,
 	if err != nil {
 		return nil, nil, err
 	}
-	// ioutil.ReadAll above, consumes entire Body so in order to have the body readable again, we must recreate it.
+	// ioutil.ReadAll above, consumes entire Body so in order to have the body
+	// readable again, we must recreate it.
 	httpResp.Body = ioutil.NopCloser(bytes.NewReader(httpBody))
 	return httpResp, httpBody, nil
 }
@@ -150,26 +195,56 @@ func (p *proxyHandler) ServeCOAP(l *net.UDPConn, a *net.UDPAddr, m *coap.Message
 	req := translateCOAPRequestToHTTPRequest(m, p.BackendURL)
 	if req == nil {
 		if waitForResponse {
-			return &generateBadRequestCOAPResponse(m).Message
+			return generateCOAPResponseMessage(m, coap.BadRequest)
 		} else {
 			return nil
 		}
 	}
 	req.Header.Set("User-Agent", userAgent)
+
 	responseChan := make(chan *coap.Message, 1)
+	// Helper function to send coap response from goroutine to responseChan.
+	sendResponse := func(m *coap.Message) {
+		// The select prevents blocking if there aren't any readers.
+		select {
+		case responseChan <- m:
+		default:
+		}
+	}
 	go func() {
 		var httpResp *http.Response
 		var httpBody []byte
+		var delayRequest bool
 		var err error
-		// Test if Block2 is sent in request, if so look for response in cache
-		if m.IsBlock2() {
-			log.Printf("COAP Block2 found, caching the response...")
-			httpResp, httpBody, err = p.doHTTPRequestCached(req)
-		} else {
-			httpResp, httpBody, err = p.doHTTPRequest(req)
+		if m.IsBlock1() {
+			var err error
+			req, err = p.cacheHTTPRequest(req)
+			if err != nil {
+				p.logError("Error on cache HTTP request: %v", err)
+				sendResponse(generateCOAPResponseMessage(m, coap.InternalServerError))
+				return
+			}
+			_, _, delayRequest = m.Block1()
 		}
-		if err != nil {
-			p.logError("Error on HTTP request: %v", err)
+
+		// Do HTTP request.
+		// There are two ways a request is done. Either with response caching enabled or without caching.
+		// Response caching is enabled when a CoAP client sends a request with Block2 option.
+		// There's also a case when HTTP request is postponed. This happens when clients sends a CoAP request
+		// with Block1 option. In this case, incoming CoAP request is translated into HTTP request, the result of
+		// the translation is then stored in cache until the last block is received. After the last block is received
+		// only then the HTTP request can be sent.
+		doHTTPRequestFunc := p.doHTTPRequest
+		if m.IsBlock2() {
+			doHTTPRequestFunc = p.doHTTPRequestCached
+		}
+		if !delayRequest {
+			httpResp, httpBody, err = doHTTPRequestFunc(req)
+			if err != nil {
+				p.logError("Error on HTTP request: %v", err)
+				sendResponse(generateCOAPResponseMessage(m, coap.InternalServerError))
+				return
+			}
 		}
 		if waitForResponse {
 			coapResp, err := translateHTTPResponseToCOAPResponse(httpResp, httpBody, err, m)

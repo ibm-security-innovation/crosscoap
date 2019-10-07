@@ -152,13 +152,13 @@ func TestProxyWithBlock2Cache(t *testing.T) {
 	}))
 	defer backend.Close()
 
-	httpCache := lrucache.New(10 * 1024, 600)
+	httpCache := lrucache.New(10*1024, 600)
 	udpListener, crosscoapAddr := createLocalUDPListener(t)
 	defer udpListener.Close()
 	proxy := Proxy{
-		Listener: udpListener,
+		Listener:   udpListener,
 		BackendURL: backend.URL,
-		HTTPCache: httpCache,
+		HTTPCache:  httpCache,
 	}
 	go proxy.Serve()
 
@@ -202,7 +202,7 @@ func TestProxyWithBlock2Cache(t *testing.T) {
 		t.Errorf("got body %q; expected %q", string(payload), backendResponse)
 	}
 
-	_, ok := httpCache.Get("GET " + backend.URL + "/test")
+	_, ok := httpCache.Get("RES GET " + backend.URL + "/test")
 	if ok == false {
 		t.Errorf("HTTP Cache is empty, expects one item")
 	}

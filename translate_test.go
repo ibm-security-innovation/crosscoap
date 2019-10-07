@@ -321,7 +321,7 @@ func TestTranslateCOAPResponseWithBlock2(t *testing.T) {
 
 	recvPayload := []byte("")
 
-	for i:= uint32(0); true; i++ {
+	for i := uint32(0); true; i++ {
 		// Read blocks until there aren't any more, read in 2^4 increments
 		coapReq.SetBlock2(i, 4, false)
 		coapResp, err := translateHTTPResponseToCOAPResponse(httpResp, httpBody, nil, coapReq)

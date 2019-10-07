@@ -2,7 +2,6 @@ package crosscoap
 
 import (
 	"bytes"
-	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -149,6 +148,20 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 		},
 		IsTruncated: false,
 	}
+
+	if httpError != nil {
+		coapResp.Code = coap.ServiceUnavailable
+		return &coapResp, nil
+	}
+
+	if coapRequest.IsBlock1() {
+		num, szx, more := coapRequest.Block1()
+		coapResp.SetBlock1(num, szx, more)
+		if more {
+			coapResp.Code = coap.Continue
+			return &coapResp, nil
+		}
+	}
 	if coapRequest.IsBlock2() {
 		num, szx, _ := coapRequest.Block2()
 		// Calculate the block size from size exponent
@@ -168,15 +181,8 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 			// We have reached the end of body, there aren't any other blocks
 			more = false
 		}
-		log.Printf("Sending fragmented response body (block: %d, size: %d, more: %v)", num, size, more)
-		log.Printf("httpBody[%d:%d]", readFrom, readTo)
 		httpBody = httpBody[readFrom:readTo]
 		coapResp.SetBlock2(num, szx, more)
-	}
-
-	if httpError != nil {
-		coapResp.Code = coap.ServiceUnavailable
-		return &coapResp, nil
 	}
 
 	coapResp.Code = translateStatusCode(httpResp.StatusCode)
@@ -205,6 +211,15 @@ func translateHTTPResponseToCOAPResponse(httpResp *http.Response, httpBody []byt
 		coapResp.Payload = httpBody
 	}
 	return &coapResp, nil
+}
+
+func generateCOAPResponseMessage(coapRequest *coap.Message, statusCode coap.COAPCode) *coap.Message {
+	return &coap.Message{
+		Type:      coap.Acknowledgement,
+		Code:      statusCode,
+		MessageID: coapRequest.MessageID,
+		Token:     coapRequest.Token,
+	}
 }
 
 func generateBadRequestCOAPResponse(coapRequest *coap.Message) *translatedCOAPMessage {
