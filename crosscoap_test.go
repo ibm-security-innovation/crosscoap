@@ -1,8 +1,10 @@
 package crosscoap
 
 import (
-	"github.com/energomonitor/go-coap"
 	"github.com/die-net/lrucache"
+	"github.com/energomonitor/go-coap"
+	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -139,6 +141,87 @@ func TestProxyWithBadCOAPPacket(t *testing.T) {
 	}
 	if rv.Code != coap.BadRequest {
 		t.Errorf("got CoAP code %v; expected %v", rv.Code, coap.BadRequest)
+	}
+}
+
+func TestProxyWithBlock1Cache(t *testing.T) {
+	const backendStatus = http.StatusOK
+	const payloadMessage = "If you are reading this, it works."
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		r.Body.Close()
+		if string(b) != payloadMessage {
+			t.Fatalf("got body %q; expected %q", string(b), payloadMessage)
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(backendStatus)
+	}))
+	defer backend.Close()
+
+	httpCache := lrucache.New(10*1024, 600)
+	udpListener, crosscoapAddr := createLocalUDPListener(t)
+	defer udpListener.Close()
+	proxy := Proxy{
+		Listener:   udpListener,
+		BackendURL: backend.URL,
+		HTTPCache:  httpCache,
+	}
+	go proxy.Serve()
+
+	req := coap.Message{
+		Type:      coap.Confirmable,
+		Code:      coap.POST,
+		MessageID: 12345,
+	}
+	req.SetPathString("/test")
+
+	c, err := coap.Dial("udp", crosscoapAddr)
+	if err != nil {
+		t.Fatalf("Error dialing: %v", err)
+	}
+
+	payload := []byte(payloadMessage)
+	szx := uint32(4)
+	blockSize := uint32(math.Pow(2, float64(szx)))
+	blockCnt := uint32(math.Ceil(float64(len(payload)) / float64(blockSize)))
+	for i := uint32(0); i < blockCnt; i++ {
+		more := true
+		if i == blockCnt - 1 {
+			more = false
+		}
+		req.SetBlock1(i, szx, more)
+
+		readFrom := i * blockSize
+		readTo := i * blockSize + blockSize
+		if readTo > uint32(len(payload)) {
+			readTo = uint32(len(payload))
+		}
+		req.Payload = payload[readFrom:readTo]
+
+		rv, err := c.Send(req)
+		if err != nil {
+			t.Fatalf("Error sending request: %v", err)
+		}
+		if rv == nil {
+			t.Fatalf("Didn't receive CoAP response")
+		}
+		if more {
+			if rv.Code != coap.Continue {
+				t.Errorf("got CoAP code %v; expected %v", rv.Code, coap.Continue)
+			}
+		} else {
+			if rv.Code != coap.Content {
+				t.Errorf("got CoAP code %v; expected %v", rv.Code, coap.Content)
+			}
+		}
+	}
+
+	_, ok := httpCache.Get("REQ POST " + backend.URL + "/test")
+	if ok == false {
+		t.Errorf("HTTP Cache is empty, expects one item")
 	}
 }
 

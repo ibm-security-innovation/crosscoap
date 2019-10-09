@@ -309,37 +309,3 @@ func TestTranslateCOAPResponseTrunactesBigHTTPBody(t *testing.T) {
 		t.Errorf("Expected CoAP payload %v, got %v", exp, len(payload))
 	}
 }
-
-func TestTranslateCOAPResponseWithBlock2(t *testing.T) {
-	coapReq := &coap.Message{MessageID: 1234, Token: []byte("TOKEN")}
-	coapReq.SetPathString("/path/to/resource")
-
-	payload := strings.Repeat("ABCD", 1000)
-	responseText := "HTTP/1.0 200 OK\r\n" +
-		"\r\n" + payload
-	httpResp, httpBody := getHTTPRespAndBody(t, responseText)
-
-	recvPayload := []byte("")
-
-	for i := uint32(0); true; i++ {
-		// Read blocks until there aren't any more, read in 2^4 increments
-		coapReq.SetBlock2(i, 4, false)
-		coapResp, err := translateHTTPResponseToCOAPResponse(httpResp, httpBody, nil, coapReq)
-		if err != nil {
-			t.Fatalf("Error translating: %v", err)
-		}
-		if coapResp.IsBlock2() {
-			_, _, more := coapResp.Block2()
-			recvPayload = append(recvPayload, coapResp.Payload...)
-			if !more {
-				break
-			}
-		} else {
-			t.Fatalf("Error Block2 option not set in response")
-		}
-	}
-
-	if string(recvPayload) != payload {
-		t.Fatalf("Received payload does not match expected payload")
-	}
-}
