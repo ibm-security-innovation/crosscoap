@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/besedad/go-coap"
+	"github.com/energomonitor/go-coap"
 )
 
 const maxCOAPPacketLen = 1500

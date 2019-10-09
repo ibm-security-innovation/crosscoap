@@ -1,7 +1,7 @@
 package crosscoap
 
 import (
-	"github.com/besedad/go-coap"
+	"github.com/energomonitor/go-coap"
 	"github.com/die-net/lrucache"
 	"net"
 	"net/http"

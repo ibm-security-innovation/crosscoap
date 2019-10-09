@@ -52,7 +52,7 @@ import (
 	"net/http/httputil"
 	"time"
 
-	"github.com/besedad/go-coap"
+	"github.com/energomonitor/go-coap"
 )
 
 // Proxy is CoAP server that takes an incoming CoAP request, translates it to

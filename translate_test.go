@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/besedad/go-coap"
+	"github.com/energomonitor/go-coap"
 )
 
 func getHTTPRespAndBody(t *testing.T, responseText string) (*http.Response, []byte) {
