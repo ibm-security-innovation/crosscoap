@@ -194,11 +194,7 @@ func (p *proxyHandler) ServeCOAP(l *net.UDPConn, a *net.UDPAddr, m *coap.Message
 	waitForResponse := m.IsConfirmable()
 	req := translateCOAPRequestToHTTPRequest(m, p.BackendURL)
 	if req == nil {
-		if waitForResponse {
-			return generateCOAPResponseMessage(m, coap.BadRequest)
-		} else {
-			return nil
-		}
+		return generateCOAPResponseMessage(m, coap.BadRequest)
 	}
 	req.Header.Set("User-Agent", userAgent)
 
@@ -262,7 +258,7 @@ func (p *proxyHandler) ServeCOAP(l *net.UDPConn, a *net.UDPAddr, m *coap.Message
 		coapResp := <-responseChan
 		return coapResp
 	} else {
-		return nil
+		return generateCOAPResponseMessage(m, coap.Content)
 	}
 }
 
